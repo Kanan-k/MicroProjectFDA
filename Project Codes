@@ -1,0 +1,120 @@
+#Data Preparation:
+# Handling missing values
+df['quantity'].fillna(df['quantity'].median(), inplace=True)
+df['discount'].fillna(0, inplace=True)
+df = df.dropna(subset=['price'])
+
+# Feature engineering: Calculate total sales
+df['total_sales'] = df['price'] * df['quantity'] * (1 - df['discount'] / 100)
+
+#------------------------------------------------------------------------------------------------------
+#Exploratory Data Analytics:
+# Descriptive Statistics
+print(df.describe())
+
+# Sales by Category
+print(df.groupby('category')['total_sales'].sum())
+
+# Top 10 High-Value Customers
+top_customers = df.groupby('customer_id')['total_sales'].sum().sort_values(ascending=False).head(10)
+print(top_customers)
+
+#--------------------------------------------------------------------------------------------------------
+#Visualisation:
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Monthly Sales Trends
+df['date'] = pd.to_datetime(df['date'])
+monthly_sales = df.resample('M', on='date')['total_sales'].sum()
+monthly_sales.plot(title='Monthly Sales Trends')
+plt.show()
+
+# Price vs Demand (Scatter Plot)
+sns.scatterplot(data=df, x='price', y='quantity', hue='category')
+plt.title('Price vs Quantity Scatter Plot')
+plt.show()
+
+#---------------------------------------------------------------------------------------------------------
+#Statistical Analysis:
+# Correlation Matrix
+correlation = df[['price', 'quantity', 'discount', 'total_sales']].corr()
+sns.heatmap(correlation, annot=True, cmap='coolwarm')
+plt.show()
+
+# Regression Line: Price vs Total Sales
+sns.regplot(x='price', y='total_sales', data=df, scatter_kws={'alpha':0.5})
+plt.title('Price vs Total Sales')
+plt.show()
+
+# Regression Line: Discount vs Quantity
+sns.regplot(x='discount', y='quantity', data=df, scatter_kws={'alpha':0.5})
+plt.title('Discount vs Quantity')
+plt.show()
+
+#----------------------------------------------------------------------------------------------------------
+#Clustering - Customer Segmentation:
+from sklearn.cluster import KMeans
+
+# Prepare Customer Data
+customer_data = df.groupby('customer_id').agg({
+    'total_sales': 'sum',
+    'quantity': 'sum'
+}).reset_index()
+
+# Apply K-Means Clustering
+X = customer_data[['total_sales', 'quantity']]
+kmeans = KMeans(n_clusters=3, random_state=42)
+customer_data['cluster'] = kmeans.fit_predict(X)
+
+# Visualize Clusters
+sns.scatterplot(data=customer_data, x='total_sales', y='quantity', hue='cluster', palette='Set1')
+plt.title('Customer Segments based on Purchasing Behavior')
+plt.xlabel('Total Sales')
+plt.ylabel('Quantity')
+plt.show()
+
+#-----------------------------------------------------------------------------------------------------------
+#Regression Modeling - Sales Prediction:
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+# Simple Linear Regression: total_sales ~ price
+X = df[['price']]
+y = df['total_sales']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model_simple = LinearRegression()
+model_simple.fit(X_train, y_train)
+y_pred_simple = model_simple.predict(X_test)
+
+# Multiple Linear Regression: total_sales ~ price + discount + quantity
+X_multi = df[['price', 'discount', 'quantity']]
+y_multi = df['total_sales']
+
+X_train_m, X_test_m, y_train_m, y_test_m = train_test_split(X_multi, y_multi, test_size=0.2, random_state=42)
+
+model_multi = LinearRegression()
+model_multi.fit(X_train_m, y_train_m)
+y_pred_multi = model_multi.predict(X_test_m)
+
+#------------------------------------------------------------------------------------------------------------
+#Error Estimation & Model Evaluation:
+from sklearn.metrics import r2_score, mean_squared_error
+import numpy as np
+
+# Simple Linear Regression Evaluation
+r2_simple = r2_score(y_test, y_pred_simple)
+se_simple = np.sqrt(mean_squared_error(y_test, y_pred_simple))
+
+# Multiple Linear Regression Evaluation
+r2_multi = r2_score(y_test_m, y_pred_multi)
+se_multi = np.sqrt(mean_squared_error(y_test_m, y_pred_multi))
+
+print("Simple Linear Regression R²:", r2_simple)
+print("Standard Error (Simple):", se_simple)
+
+print("\nMultiple Linear Regression R²:", r2_multi)
+print("Standard Error (Multiple):", se_multi)
